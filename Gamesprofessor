@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Crypto Mine & Loot</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --accent: #38bdf8;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      
+      /* Rarity Colors */
+      --common: #94a3b8;
+      --rare: #38bdf8;
+      --epic: #a855f7;
+      --legendary: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* Top Stats Bar */
+    .stats-bar {
+      background: var(--card-bg);
+      padding: 12px 16px;
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      margin-bottom: 12px;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: bold;
+      color: #facc15;
+    }
+
+    /* Navigation Tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: var(--card-bg);
+      color: var(--text-muted);
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: #0f172a;
+    }
+
+    /* Tab Content Areas */
+    .tab-content {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .tab-content.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Game Tab */
+    .game-box {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .loot-btn {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      border: 4px solid var(--accent);
+      background: radial-gradient(circle, #1e293b 0%, #0f172a 100%);
+      font-size: 50px;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.3);
+      transition: transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .loot-btn:active {
+      transform: scale(0.92);
+    }
+
+    .drop-result {
+      min-height: 60px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    /* Inventory & Upgrades List */
+    .grid-list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+      border: 1px solid #334155;
+    }
+
+    .card.common { border-color: var(--common); }
+    .card.rare { border-color: var(--rare); }
+    .card.epic { border-color: var(--epic); }
+    .card.legendary { border-color: var(--legendary); box-shadow: 0 0 10px rgba(245, 158, 11, 0.2); }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-info {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .action-btn {
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #0f172a;
+      font-weight: bold;
+      font-size: 12px;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+
+    .action-btn:disabled {
+      background: #475569;
+      color: #94a3b8;
+      cursor: not-allowed;
+    }
+
+    .sell-all-btn {
+      width: 100%;
+      padding: 12px;
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <span class="stat-label">Баланс</span>
+      <span class="stat-value">🪙 <span id="coins">0</span></span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Пасив/сек</span>
+      <span class="stat-value" style="color: #34d399;">+<span id="pps">0</span></span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Удача</span>
+      <span class="stat-value" style="color: #38bdf8;">x<span id="luck">1.0</span></span>
+    </div>
+  </div>
+
+  <!-- Tabs Nav -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('game')">🎯 Шахта</button>
+    <button class="tab-btn" onclick="switchTab('inventory')">🎒 Інвентар</button>
+    <button class="tab-btn" onclick="switchTab('shop')">⚡ Прокачка</button>
+  </div>
+
+  <!-- TAB 1: GAME -->
+  <div id="tab-game" class="tab-content active">
+    <div class="game-box">
+      <button class="loot-btn" id="mine-btn" onclick="mineItem()">⛏️</button>
+      <div class="drop-result" id="drop-result">Натисни на сундук/шахту, щоб знайти лут!</div>
+    </div>
+  </div>
+
+  <!-- TAB 2: INVENTORY -->
+  <div id="tab-inventory" class="tab-content">
+    <button class="sell-all-btn" onclick="sellAll()">💰 Продати все</button>
+    <div class="grid-list" id="inventory-list"></div>
+  </div>
+
+  <!-- TAB 3: SHOP -->
+  <div id="tab-shop" class="tab-content">
+    <div style="display: flex; flex-direction: column; gap: 10px;" id="upgrades-list"></div>
+  </div>
+
+  <script>
+    // --- DATABASE OF ITEMS & UPGRADES ---
+    const ITEMS = [
+      { id: 'stone', name: 'Камінь', rarity: 'common', price: 5, icon: '🪨', chance: 50 },
+      { id: 'coal', name: 'Вугілля', rarity: 'common', price: 15, icon: '⬛', chance: 30 },
+      { id: 'copper', name: 'Мідь', rarity: 'rare', price: 45, icon: '🥉', chance: 12 },
+      { id: 'silver', name: 'Срібло', rarity: 'rare', price: 120, icon: '🥈', chance: 5 },
+      { id: 'gold', name: 'Золото', rarity: 'epic', price: 350, icon: '🥇', chance: 2.2 },
+      { id: 'diamond', name: 'Алмаз', rarity: 'epic', price: 1000, icon: '💎', chance: 0.7 },
+      { id: 'relic', name: 'Стародавня Реліквія', rarity: 'legendary', price: 5000, icon: '👑', chance: 0.1 }
+    ];
+
+    const UPGRADES = [
+      { id: 'luck', name: 'Магія Удачі', desc: 'Збільшує шанс на рідкісний лут', basePrice: 50, factor: 2.2 },
+      { id: 'multiplier', name: 'Торгівельна Націнка', desc: 'Множник цін при продажу (+20%)', basePrice: 100, factor: 2.5 },
+      { id: 'autominer', name: 'Авто-Шахтар', desc: 'Автоматично видобуває монети (+2/сек)', basePrice: 150, factor: 1.8 }
+    ];
+
+    // --- GAME STATE ---
+    let state = {
+      coins: 0,
+      inventory: {}, // { itemId: count }
+      upgrades: { luck: 0, multiplier: 0, autominer: 0 }
+    };
+
+    // --- SAVE / LOAD SYSTEM ---
+    function saveData() {
+      localStorage.setItem('tg_minigame_state', JSON.stringify(state));
+    }
+
+    function loadData() {
+      const saved = localStorage.getItem('tg_minigame_state');
+      if (saved) {
+        try { state = { ...state, ...JSON.parse(saved) }; } catch(e){}
+      }
+    }
+
+    // --- LOGIC ---
+    function getLuckMultiplier() {
+      return 1 + (state.upgrades.luck * 0.25);
+    }
+
+    function getSellMultiplier() {
+      return 1 + (state.upgrades.multiplier * 0.2);
+    }
+
+    function getPassiveIncome() {
+      return state.upgrades.autominer * 2;
+    }
+
+    function mineItem() {
+      const luck = getLuckMultiplier();
+      
+      // Calculate total weight with luck boost
+      let pool = ITEMS.map(item => {
+        let weight = item.chance;
+        if (item.rarity !== 'common') weight *= luck;
+        return { item, weight };
+      });
+
+      let totalWeight = pool.reduce((acc, p) => acc + p.weight, 0);
+      let rand = Math.random() * totalWeight;
+
+      let droppedItem = pool[0].item;
+      for (let p of pool) {
+        if (rand < p.weight) {
+          droppedItem = p.item;
+          break;
+        }
+        rand -= p.weight;
+      }
+
+      // Add to inventory
+      state.inventory[droppedItem.id] = (state.inventory[droppedItem.id] || 0) + 1;
+      saveData();
+
+      // UI updates
+      const resultEl = document.getElementById('drop-result');
+      const rarityNames = { common: 'Звичайний', rare: 'Рідкісний', epic: 'Епічний', legendary: 'ЛЕГЕНДАРНИЙ!' };
+      resultEl.innerHTML = `Ви знайшли: <br><strong style="font-size: 18px; color: var(--${droppedItem.rarity})">${droppedItem.icon} ${droppedItem.name}</strong><br><small>(${rarityNames[droppedItem.rarity]})</small>`;
+
+      updateUI();
+    }
+
+    function sellItem(id) {
+      const count = state.inventory[id] || 0;
+      if (count <= 0) return;
+
+      const item = ITEMS.find(i => i.id === id);
+      const pricePerUnit = Math.round(item.price * getSellMultiplier());
+      const totalEarned = pricePerUnit * count;
+
+      state.coins += totalEarned;
+      delete state.inventory[id];
+      saveData();
+      updateUI();
+    }
+
+    function sellAll() {
+      let totalEarned = 0;
+      const mult = getSellMultiplier();
+
+      for (let id in state.inventory) {
+        const item = ITEMS.find(i => i.id === id);
+        if (item) {
+          totalEarned += Math.round(item.price * mult) * state.inventory[id];
+        }
+      }
+
+      state.inventory = {};
+      state.coins += totalEarned;
+      saveData();
+      updateUI();
+    }
+
+    function buyUpgrade(id) {
+      const upg = UPGRADES.find(u => u.id === id);
+      const lvl = state.upgrades[id] || 0;
+      const cost = Math.round(upg.basePrice * Math.pow(upg.factor, lvl));
+
+      if (state.coins >= cost) {
+        state.coins -= cost;
+        state.upgrades[id] = lvl + 1;
+        saveData();
+        updateUI();
+      }
+    }
+
+    // --- UI RENDER ---
+    function updateUI() {
+      document.getElementById('coins').innerText = Math.floor(state.coins).toLocaleString();
+      document.getElementById('pps').innerText = getPassiveIncome();
+      document.getElementById('luck').innerText = getLuckMultiplier().toFixed(1);
+
+      renderInventory();
+      renderShop();
+    }
+
+    function renderInventory() {
+      const list = document.getElementById('inventory-list');
+      list.innerHTML = '';
+
+      const keys = Object.keys(state.inventory);
+      if (keys.length === 0) {
+        list.innerHTML = '<div style="grid-column: span 2; text-align:center; color: var(--text-muted); padding: 20px;">Інвентар порожній</div>';
+        return;
+      }
+
+      keys.forEach(id => {
+        const count = state.inventory[id];
+        const item = ITEMS.find(i => i.id === id);
+        const sellPrice = Math.round(item.price * getSellMultiplier());
+
+        const card = document.createElement('div');
+        card.className = `card ${item.rarity}`;
+        card.innerHTML = `
+          <div class="card-title"><span>${item.icon}</span> ${item.name}</div>
+          <div class="card-info">Кількість: <b>${count}</b></div>
+          <div class="card-info">Ціна/шт: <b>🪙 ${sellPrice}</b></div>
+          <button class="action-btn" onclick="sellItem('${item.id}')">Продати все (🪙 ${sellPrice * count})</button>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    function renderShop() {
+      const list = document.getElementById('upgrades-list');
+      list.innerHTML = '';
+
+      UPGRADES.forEach(upg => {
+        const lvl = state.upgrades[upg.id] || 0;
+        const cost = Math.round(upg.basePrice * Math.pow(upg.factor, lvl));
+        const canAfford = state.coins >= cost;
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.flexDirection = 'row';
+        card.style.justifyContent = 'space-between';
+        card.style.alignItems = 'center';
+        card.innerHTML = `
+          <div>
+            <div class="card-title">${upg.name} <span style="font-size:12px; color:var(--accent);">Рівень ${lvl}</span></div>
+            <div class="card-info">${upg.desc}</div>
+          </div>
+          <button class="action-btn" ${!canAfford ? 'disabled' : ''} onclick="buyUpgrade('${upg.id}')">
+            🪙 ${cost.toLocaleString()}
+          </button>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+      event.target.classList.add('active');
+      document.getElementById(`tab-${tabId}`).classList.add('active');
+    }
+
+    // --- GAME LOOP & INIT ---
+    loadData();
+    updateUI();
+
+    // Loop for Passive Income
+    setInterval(() => {
+      const pps = getPassiveIncome();
+      if (pps > 0) {
+        state.coins += pps;
+        saveData();
+        document.getElementById('coins').innerText = Math.floor(state.coins).toLocaleString();
+      }
+    }, 1000);
+
+    // Initialize Telegram WebApp SDK
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+    }
+  </script>
+</body>
+</html>
