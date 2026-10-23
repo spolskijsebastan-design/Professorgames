@@ -1,0 +1,6 @@
+{
+  "appId": "com.hvylia.app",
+  "appName": "Хвиля",
+  "webDir": "www",
+  "server": { "androidScheme": "https" }
+}
